@@ -1,0 +1,50 @@
+{
+  "name": "xRWA",
+  "version": "1.0.0",
+  "description": "xRWA - 토큰증권 발행 플랫폼",
+  "private": true,
+  "scripts": {
+    "setup": "./scripts/setup.sh",
+    "dev:backend": "cd back && npm run start:dev",
+    "dev:frontend": "cd front && npm run dev",
+    "dev:contract": "cd contract && npm run node",
+    "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:contract\"",
+    "build:backend": "cd back && npm run build",
+    "build:frontend": "cd front && npm run build",
+    "build:contract": "cd contract && npm run compile",
+    "build:all": "npm run build:contract && npm run build:backend && npm run build:frontend",
+    "test:backend": "cd back && npm run test",
+    "test:contract": "cd contract && npm run test",
+    "test:all": "npm run test:contract && npm run test:backend",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:build": "docker-compose build",
+    "docker:logs": "docker-compose logs -f",
+    "clean": "rm -rf back/node_modules front/node_modules contract/node_modules back/dist front/.next contract/artifacts contract/cache",
+    "install:all": "npm install && cd back && npm install && cd ../front && npm install && cd ../contract && npm install"
+  },
+  "keywords": [
+    "stablecoin",
+    "blockchain",
+    "ethereum",
+    "defi",
+    "ds-protocol",
+    "nestjs",
+    "nextjs",
+    "hardhat"
+  ],
+  "author": "xRWA Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "workspaces": [
+    "back",
+    "front",
+    "contract"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
