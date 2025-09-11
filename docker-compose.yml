@@ -13,7 +13,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - xstables-network
+      - xrwa-network
 
   # Redis (for caching)
   redis:
@@ -21,7 +21,7 @@ services:
     ports:
       - "6379:6379"
     networks:
-      - xstables-network
+      - xrwa-network
 
   # Backend API
   backend:
@@ -48,7 +48,7 @@ services:
       - postgres
       - redis
     networks:
-      - xstables-network
+      - xrwa-network
 
   # Frontend
   frontend:
@@ -62,7 +62,7 @@ services:
     depends_on:
       - backend
     networks:
-      - xstables-network
+      - xrwa-network
 
   # Hardhat Local Network
   hardhat:
@@ -72,11 +72,11 @@ services:
     ports:
       - "8545:8545"
     networks:
-      - xstables-network
+      - xrwa-network
 
 volumes:
   postgres_data:
 
 networks:
-  xstables-network:
+  xrwa-network:
     driver: bridge

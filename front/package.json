@@ -1,6 +1,8 @@
 {
-  "name": "front",
-  "version": "0.1.0",
+  "name": "xrwa-frontend",
+  "version": "1.0.0",
+  "description": "xRWA Frontend - Real World Asset Tokenization Platform",
+  "author": "xRWA Team",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",

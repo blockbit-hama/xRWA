@@ -1,8 +1,8 @@
 {
-  "name": "back",
-  "version": "0.0.1",
-  "description": "",
-  "author": "",
+  "name": "xrwa-backend",
+  "version": "1.0.0",
+  "description": "xRWA Backend API - Real World Asset Tokenization Platform",
+  "author": "xRWA Team",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {

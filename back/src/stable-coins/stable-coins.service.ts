@@ -9,50 +9,51 @@ import { BlockchainService } from '../blockchain/blockchain.service';
 export class StableCoinsService {
   constructor(
     @InjectRepository(StableCoin)
-    private stableCoinsRepository: Repository<StableCoin>,
+    private stableCoinRepository: Repository<StableCoin>,
     private blockchainService: BlockchainService,
   ) {}
 
   async create(createStableCoinDto: CreateStableCoinDto, issuerId: string): Promise<StableCoin> {
-    // 블록체인에 스테이블코인 컨트랙트 배포
-    const contractAddress = await this.blockchainService.deployStableCoin({
-      name: createStableCoinDto.name,
-      symbol: createStableCoinDto.symbol,
-      decimals: createStableCoinDto.decimals,
-      maxSupply: createStableCoinDto.maxSupply,
-    });
-
-    const stableCoin = this.stableCoinsRepository.create({
+    const stableCoin = this.stableCoinRepository.create({
       ...createStableCoinDto,
-      contractAddress,
       issuerId,
     });
 
-    return this.stableCoinsRepository.save(stableCoin);
+    return this.stableCoinRepository.save(stableCoin);
   }
 
   async findAll(): Promise<StableCoin[]> {
-    return this.stableCoinsRepository.find({
-      relations: ['issuer'],
+    return this.stableCoinRepository.find();
+  }
+
+  async findByIssuer(issuerId: string): Promise<StableCoin[]> {
+    return this.stableCoinRepository.find({
+      where: { issuerId },
     });
   }
 
   async findOne(id: string): Promise<StableCoin> {
-    const stableCoin = await this.stableCoinsRepository.findOne({
+    const stableCoin = await this.stableCoinRepository.findOne({
       where: { id },
-      relations: ['issuer'],
     });
+
     if (!stableCoin) {
-      throw new NotFoundException('StableCoin not found');
+      throw new NotFoundException('Stable coin not found');
     }
+
     return stableCoin;
   }
 
-  async findByIssuer(issuerId: string): Promise<StableCoin[]> {
-    return this.stableCoinsRepository.find({
-      where: { issuerId },
-      relations: ['issuer'],
-    });
+  async update(id: string, updateStableCoinDto: any): Promise<StableCoin> {
+    const stableCoin = await this.findOne(id);
+    
+    Object.assign(stableCoin, updateStableCoinDto);
+    return this.stableCoinRepository.save(stableCoin);
+  }
+
+  async remove(id: string): Promise<void> {
+    const stableCoin = await this.findOne(id);
+    await this.stableCoinRepository.remove(stableCoin);
   }
 
   async mint(id: string, to: string, amount: string, issuerId: string): Promise<any> {
@@ -62,13 +63,52 @@ export class StableCoinsService {
       throw new ForbiddenException('Only the issuer can mint tokens');
     }
 
-    return this.blockchainService.mintToken(stableCoin.contractAddress, to, amount);
+    if (!stableCoin.mintingEnabled) {
+      throw new ForbiddenException('Minting is disabled for this token');
+    }
+
+    // Call blockchain service to mint tokens
+    const transactionHash = await this.blockchainService.mintTokens(
+      stableCoin.contractAddress,
+      to,
+      amount,
+    );
+
+    // Update total supply
+    stableCoin.totalSupply += BigInt(amount);
+    await this.stableCoinRepository.save(stableCoin);
+
+    return {
+      transactionHash,
+      newTotalSupply: stableCoin.totalSupply.toString(),
+    };
   }
 
-  async burn(id: string, amount: string, userId: string): Promise<any> {
+  async burn(id: string, amount: string, issuerId: string): Promise<any> {
     const stableCoin = await this.findOne(id);
     
-    return this.blockchainService.burnToken(stableCoin.contractAddress, userId, amount);
+    if (stableCoin.issuerId !== issuerId) {
+      throw new ForbiddenException('Only the issuer can burn tokens');
+    }
+
+    if (!stableCoin.burningEnabled) {
+      throw new ForbiddenException('Burning is disabled for this token');
+    }
+
+    // Call blockchain service to burn tokens
+    const transactionHash = await this.blockchainService.burnTokens(
+      stableCoin.contractAddress,
+      amount,
+    );
+
+    // Update total supply
+    stableCoin.totalSupply -= BigInt(amount);
+    await this.stableCoinRepository.save(stableCoin);
+
+    return {
+      transactionHash,
+      newTotalSupply: stableCoin.totalSupply.toString(),
+    };
   }
 
   async toggleMinting(id: string, issuerId: string): Promise<StableCoin> {
@@ -78,13 +118,8 @@ export class StableCoinsService {
       throw new ForbiddenException('Only the issuer can toggle minting');
     }
 
-    const newMintingStatus = !stableCoin.mintingEnabled;
-    await this.stableCoinsRepository.update(id, { mintingEnabled: newMintingStatus });
-    
-    // 블록체인에서도 상태 업데이트
-    await this.blockchainService.toggleMinting(stableCoin.contractAddress);
-    
-    return this.findOne(id);
+    stableCoin.mintingEnabled = !stableCoin.mintingEnabled;
+    return this.stableCoinRepository.save(stableCoin);
   }
 
   async toggleBurning(id: string, issuerId: string): Promise<StableCoin> {
@@ -94,12 +129,7 @@ export class StableCoinsService {
       throw new ForbiddenException('Only the issuer can toggle burning');
     }
 
-    const newBurningStatus = !stableCoin.burningEnabled;
-    await this.stableCoinsRepository.update(id, { burningEnabled: newBurningStatus });
-    
-    // 블록체인에서도 상태 업데이트
-    await this.blockchainService.toggleBurning(stableCoin.contractAddress);
-    
-    return this.findOne(id);
+    stableCoin.burningEnabled = !stableCoin.burningEnabled;
+    return this.stableCoinRepository.save(stableCoin);
   }
 }

@@ -20,7 +20,7 @@ import { SettlementModule } from './settlement/settlement.module';
       port: parseInt(process.env.DB_PORT) || 5432,
       username: process.env.DB_USERNAME || 'postgres',
       password: process.env.DB_PASSWORD || 'password',
-      database: process.env.DB_DATABASE || 'xstables',
+      database: process.env.DB_DATABASE || 'xrwa',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: process.env.NODE_ENV !== 'production',
     }),

@@ -1,7 +1,7 @@
 {
   "name": "xRWA",
   "version": "1.0.0",
-  "description": "xRWA - 토큰증권 발행 플랫폼",
+  "description": "xRWA - Real World Asset Tokenization Platform",
   "private": true,
   "scripts": {
     "setup": "./scripts/setup.sh",
@@ -24,7 +24,9 @@
     "install:all": "npm install && cd back && npm install && cd ../front && npm install && cd ../contract && npm install"
   },
   "keywords": [
-    "stablecoin",
+    "rwa",
+    "tokenization",
+    "real-world-assets",
     "blockchain",
     "ethereum",
     "defi",

@@ -1,18 +1,27 @@
-import { IsString, IsNumber, IsPositive, MinLength } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsBoolean } from 'class-validator';
 
 export class CreateStableCoinDto {
   @IsString()
-  @MinLength(1)
   name: string;
 
   @IsString()
-  @MinLength(1)
   symbol: string;
 
   @IsNumber()
-  @IsPositive()
   decimals: number;
 
+  @IsNumber()
+  totalSupply: number;
+
+  @IsOptional()
   @IsString()
-  maxSupply: string;
+  contractAddress?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  mintingEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  burningEnabled?: boolean;
 }

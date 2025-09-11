@@ -7,12 +7,12 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
- * @title StableCoin
- * @dev ERC20 기반 스테이블코인 컨트랙트
+ * @title RWA Token
+ * @dev ERC20 기반 자산토큰화 컨트랙트
  * DS 프로토콜의 DS 토큰 개념을 참고하여 구현
  */
 contract StableCoin is ERC20, Ownable, Pausable, ReentrancyGuard {
-    // 스테이블코인 정보
+    // 자산토큰 정보
     string private _symbol;
     uint8 private _decimals;
     uint256 private _maxSupply;

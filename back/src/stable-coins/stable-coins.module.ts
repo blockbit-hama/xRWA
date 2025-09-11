@@ -6,9 +6,12 @@ import { StableCoin } from './stable-coin.entity';
 import { BlockchainModule } from '../blockchain/blockchain.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([StableCoin]), BlockchainModule],
-  providers: [StableCoinsService],
+  imports: [
+    TypeOrmModule.forFeature([StableCoin]),
+    BlockchainModule,
+  ],
   controllers: [StableCoinsController],
+  providers: [StableCoinsService],
   exports: [StableCoinsService],
 })
 export class StableCoinsModule {}

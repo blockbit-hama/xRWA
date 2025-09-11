@@ -1,7 +1,7 @@
 {
-  "name": "xstables-contracts",
+  "name": "xrwa-contracts",
   "version": "1.0.0",
-  "description": "xStables Smart Contracts",
+  "description": "xRWA Smart Contracts - Real World Asset Tokenization",
   "main": "index.js",
   "scripts": {
     "compile": "hardhat compile",
@@ -12,12 +12,15 @@
     "clean": "hardhat clean"
   },
   "keywords": [
-    "stablecoin",
+    "rwa",
+    "tokenization",
+    "real-world-assets",
     "blockchain",
     "ethereum",
-    "defi"
+    "defi",
+    "ds-protocol"
   ],
-  "author": "",
+  "author": "xRWA Team",
   "license": "MIT",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.0",
