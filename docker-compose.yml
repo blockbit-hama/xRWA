@@ -5,7 +5,7 @@ services:
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_DB: xstables
+      POSTGRES_DB: xrwa
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
@@ -36,9 +36,14 @@ services:
       - DB_PORT=5432
       - DB_USERNAME=postgres
       - DB_PASSWORD=password
-      - DB_DATABASE=xstables
+      - DB_DATABASE=xrwa
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
       - BLOCKCHAIN_RPC_URL=http://hardhat:8545
+      - BLOCKCHAIN_PRIVATE_KEY=your-private-key
+      - TRUST_SERVICE_ADDRESS=0x...
+      - REGISTRY_SERVICE_ADDRESS=0x...
+      - COMPLIANCE_SERVICE_ADDRESS=0x...
+      - DS_TOKEN_ADDRESS=0x...
     depends_on:
       - postgres
       - redis

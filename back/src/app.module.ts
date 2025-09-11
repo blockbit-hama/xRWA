@@ -5,6 +5,9 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { StableCoinsModule } from './stable-coins/stable-coins.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
+import { InvestorsModule } from './investors/investors.module';
+import { TokensModule } from './tokens/tokens.module';
+import { SettlementModule } from './settlement/settlement.module';
 
 @Module({
   imports: [
@@ -25,6 +28,9 @@ import { BlockchainModule } from './blockchain/blockchain.module';
     UsersModule,
     StableCoinsModule,
     BlockchainModule,
+    InvestorsModule,
+    TokensModule,
+    SettlementModule,
   ],
 })
 export class AppModule {}

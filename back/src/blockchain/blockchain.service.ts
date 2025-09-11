@@ -1,244 +1,303 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ethers } from 'ethers';
-
-// StableCoin 컨트랙트 ABI (간소화된 버전)
-const STABLE_COIN_ABI = [
-  "function mint(address to, uint256 amount) external",
-  "function burn(uint256 amount) external",
-  "function toggleMinting() external",
-  "function toggleBurning() external",
-  "function balanceOf(address account) external view returns (uint256)",
-  "function totalSupply() external view returns (uint256)",
-  "function mintingEnabled() external view returns (bool)",
-  "function burningEnabled() external view returns (bool)",
-  "function setKYCVerified(address account, bool verified) external",
-  "function setFrozen(address account, bool frozen) external"
-];
-
-// StableCoinFactory 컨트랙트 ABI (간소화된 버전)
-const FACTORY_ABI = [
-  "function createStableCoin(string memory name, string memory symbol, uint8 decimals, uint256 maxSupply) external returns (address)",
-  "function getStableCoinCount() external view returns (uint256)",
-  "function getStableCoinInfo(uint256 index) external view returns (tuple(address tokenAddress, string name, string symbol, uint8 decimals, uint256 maxSupply, address issuer, uint256 createdAt, bool active))",
-  "function getStableCoinBySymbol(string memory symbol) external view returns (address)"
-];
 
 @Injectable()
 export class BlockchainService {
   private readonly logger = new Logger(BlockchainService.name);
   private provider: ethers.JsonRpcProvider;
   private wallet: ethers.Wallet;
-  private factoryContract: ethers.Contract;
-  private factoryAddress: string;
 
-  constructor() {
-    // 환경변수에서 설정 가져오기
-    const rpcUrl = process.env.BLOCKCHAIN_RPC_URL || 'http://localhost:8545';
-    const privateKey = process.env.BLOCKCHAIN_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-    this.factoryAddress = process.env.FACTORY_CONTRACT_ADDRESS || '';
-    
+  constructor(private configService: ConfigService) {
+    const rpcUrl = this.configService.get<string>('BLOCKCHAIN_RPC_URL');
+    const privateKey = this.configService.get<string>('BLOCKCHAIN_PRIVATE_KEY');
+
+    if (!rpcUrl || !privateKey) {
+      this.logger.warn('Blockchain configuration not found, using mock mode');
+      return;
+    }
+
     this.provider = new ethers.JsonRpcProvider(rpcUrl);
     this.wallet = new ethers.Wallet(privateKey, this.provider);
-    
-    // Factory 컨트랙트 인스턴스 생성
-    if (this.factoryAddress) {
-      this.factoryContract = new ethers.Contract(this.factoryAddress, FACTORY_ABI, this.wallet);
-    }
   }
 
-  async deployStableCoin(params: {
-    name: string;
-    symbol: string;
-    decimals: number;
-    maxSupply: string;
-  }): Promise<string> {
-    try {
-      if (!this.factoryContract) {
-        this.logger.warn('Factory contract not deployed, using mock address');
-        const randomAddress = ethers.Wallet.createRandom().address;
-        this.logger.log(`Mock deployment: ${params.name} (${params.symbol}) -> ${randomAddress}`);
-        return randomAddress;
-      }
+  async getContractAddresses(): Promise<{
+    trustService: string;
+    registryService: string;
+    complianceService: string;
+    dsToken: string;
+  }> {
+    // In a real implementation, these would be stored in the database
+    // or retrieved from a configuration service
+    return {
+      trustService: this.configService.get<string>('TRUST_SERVICE_ADDRESS'),
+      registryService: this.configService.get<string>('REGISTRY_SERVICE_ADDRESS'),
+      complianceService: this.configService.get<string>('COMPLIANCE_SERVICE_ADDRESS'),
+      dsToken: this.configService.get<string>('DS_TOKEN_ADDRESS'),
+    };
+  }
 
-      this.logger.log(`Deploying StableCoin: ${params.name} (${params.symbol})`);
-      
-      const tx = await this.factoryContract.createStableCoin(
-        params.name,
-        params.symbol,
-        params.decimals,
-        params.maxSupply
+  async registerInvestor(
+    investorId: string,
+    collisionHash: string,
+  ): Promise<string> {
+    try {
+      const addresses = await this.getContractAddresses();
+      const registryContract = new ethers.Contract(
+        addresses.registryService,
+        this.getRegistryABI(),
+        this.wallet,
       );
+
+      const tx = await registryContract.registerInvestor(investorId, collisionHash);
+      await tx.wait();
       
-      const receipt = await tx.wait();
-      this.logger.log(`StableCoin deployed successfully: ${receipt.hash}`);
+      this.logger.log(`Investor ${investorId} registered on blockchain`);
+      return tx.hash;
+    } catch (error) {
+      this.logger.error(`Failed to register investor ${investorId}:`, error);
+      throw error;
+    }
+  }
+
+  async addWalletToInvestor(
+    investorId: string,
+    walletAddress: string,
+  ): Promise<string> {
+    try {
+      const addresses = await this.getContractAddresses();
+      const registryContract = new ethers.Contract(
+        addresses.registryService,
+        this.getRegistryABI(),
+        this.wallet,
+      );
+
+      const tx = await registryContract.addWallet(walletAddress, investorId);
+      await tx.wait();
       
-      // 이벤트에서 컨트랙트 주소 추출
-      const event = receipt.logs.find(log => {
-        try {
-          const parsed = this.factoryContract.interface.parseLog(log);
-          return parsed?.name === 'StableCoinCreated';
-        } catch {
-          return false;
-        }
-      });
+      this.logger.log(`Wallet ${walletAddress} added to investor ${investorId}`);
+      return tx.hash;
+    } catch (error) {
+      this.logger.error(`Failed to add wallet ${walletAddress} to investor ${investorId}:`, error);
+      throw error;
+    }
+  }
+
+  async setInvestorCountry(
+    investorId: string,
+    country: string,
+  ): Promise<string> {
+    try {
+      const addresses = await this.getContractAddresses();
+      const registryContract = new ethers.Contract(
+        addresses.registryService,
+        this.getRegistryABI(),
+        this.wallet,
+      );
+
+      const tx = await registryContract.setCountry(investorId, country);
+      await tx.wait();
       
-      if (event) {
-        const parsed = this.factoryContract.interface.parseLog(event);
-        return parsed?.args.tokenAddress;
+      this.logger.log(`Country ${country} set for investor ${investorId}`);
+      return tx.hash;
+    } catch (error) {
+      this.logger.error(`Failed to set country for investor ${investorId}:`, error);
+      throw error;
+    }
+  }
+
+  async setInvestorAttribute(
+    investorId: string,
+    attrId: number,
+    value: number,
+    expiry: number,
+    proofHash: string,
+  ): Promise<string> {
+    try {
+      const addresses = await this.getContractAddresses();
+      const registryContract = new ethers.Contract(
+        addresses.registryService,
+        this.getRegistryABI(),
+        this.wallet,
+      );
+
+      const tx = await registryContract.setAttribute(
+        investorId,
+        attrId,
+        value,
+        expiry,
+        proofHash,
+      );
+      await tx.wait();
+      
+      this.logger.log(`Attribute ${attrId} set for investor ${investorId}`);
+      return tx.hash;
+    } catch (error) {
+      this.logger.error(`Failed to set attribute for investor ${investorId}:`, error);
+      throw error;
+    }
+  }
+
+  async issueTokens(
+    tokenAddress: string,
+    to: string,
+    amount: string,
+    lockAmount?: string,
+    lockPeriod?: number,
+    reason?: string,
+  ): Promise<string> {
+    try {
+      const dsTokenContract = new ethers.Contract(
+        tokenAddress,
+        this.getDSTokenABI(),
+        this.wallet,
+      );
+
+      let tx;
+      if (lockAmount && lockPeriod && reason) {
+        const releaseTime = Math.floor(Date.now() / 1000) + lockPeriod * 24 * 60 * 60;
+        tx = await dsTokenContract.issueTokenWithLocking(
+          to,
+          ethers.parseEther(amount),
+          ethers.parseEther(lockAmount),
+          reason,
+          releaseTime,
+        );
+      } else {
+        tx = await dsTokenContract.issueTokens(to, ethers.parseEther(amount));
       }
+
+      await tx.wait();
       
-      throw new Error('Failed to extract contract address from deployment event');
+      this.logger.log(`Tokens issued to ${to}: ${amount}`);
+      return tx.hash;
     } catch (error) {
-      this.logger.error(`Failed to deploy StableCoin: ${error.message}`);
+      this.logger.error(`Failed to issue tokens to ${to}:`, error);
       throw error;
     }
   }
 
-  async mintToken(contractAddress: string, to: string, amount: string): Promise<any> {
+  async burnTokens(
+    tokenAddress: string,
+    from: string,
+    amount: string,
+    reason: string,
+  ): Promise<string> {
     try {
-      this.logger.log(`Minting ${amount} tokens to ${to} on contract ${contractAddress}`);
+      const dsTokenContract = new ethers.Contract(
+        tokenAddress,
+        this.getDSTokenABI(),
+        this.wallet,
+      );
+
+      const tx = await dsTokenContract.burn(from, ethers.parseEther(amount), reason);
+      await tx.wait();
       
-      const contract = new ethers.Contract(contractAddress, STABLE_COIN_ABI, this.wallet);
-      const tx = await contract.mint(to, amount);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Minting successful: ${receipt.hash}`);
-      return {
-        transactionHash: receipt.hash,
-        success: true,
-        blockNumber: receipt.blockNumber,
-      };
+      this.logger.log(`Tokens burned from ${from}: ${amount}`);
+      return tx.hash;
     } catch (error) {
-      this.logger.error(`Failed to mint tokens: ${error.message}`);
+      this.logger.error(`Failed to burn tokens from ${from}:`, error);
       throw error;
     }
   }
 
-  async burnToken(contractAddress: string, from: string, amount: string): Promise<any> {
+  async seizeTokens(
+    tokenAddress: string,
+    from: string,
+    to: string,
+    amount: string,
+    reason: string,
+  ): Promise<string> {
     try {
-      this.logger.log(`Burning ${amount} tokens from ${from} on contract ${contractAddress}`);
+      const dsTokenContract = new ethers.Contract(
+        tokenAddress,
+        this.getDSTokenABI(),
+        this.wallet,
+      );
+
+      const tx = await dsTokenContract.seize(from, to, ethers.parseEther(amount), reason);
+      await tx.wait();
       
-      const contract = new ethers.Contract(contractAddress, STABLE_COIN_ABI, this.wallet);
-      const tx = await contract.burn(amount);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Burning successful: ${receipt.hash}`);
-      return {
-        transactionHash: receipt.hash,
-        success: true,
-        blockNumber: receipt.blockNumber,
-      };
+      this.logger.log(`Tokens seized from ${from} to ${to}: ${amount}`);
+      return tx.hash;
     } catch (error) {
-      this.logger.error(`Failed to burn tokens: ${error.message}`);
+      this.logger.error(`Failed to seize tokens from ${from} to ${to}:`, error);
       throw error;
     }
   }
 
-  async toggleMinting(contractAddress: string): Promise<any> {
+  async pauseToken(tokenAddress: string): Promise<string> {
     try {
-      this.logger.log(`Toggling minting on contract ${contractAddress}`);
+      const dsTokenContract = new ethers.Contract(
+        tokenAddress,
+        this.getDSTokenABI(),
+        this.wallet,
+      );
+
+      const tx = await dsTokenContract.pause();
+      await tx.wait();
       
-      const contract = new ethers.Contract(contractAddress, STABLE_COIN_ABI, this.wallet);
-      const tx = await contract.toggleMinting();
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Minting toggle successful: ${receipt.hash}`);
-      return {
-        transactionHash: receipt.hash,
-        success: true,
-        blockNumber: receipt.blockNumber,
-      };
+      this.logger.log(`Token ${tokenAddress} paused`);
+      return tx.hash;
     } catch (error) {
-      this.logger.error(`Failed to toggle minting: ${error.message}`);
+      this.logger.error(`Failed to pause token ${tokenAddress}:`, error);
       throw error;
     }
   }
 
-  async toggleBurning(contractAddress: string): Promise<any> {
+  async unpauseToken(tokenAddress: string): Promise<string> {
     try {
-      this.logger.log(`Toggling burning on contract ${contractAddress}`);
+      const dsTokenContract = new ethers.Contract(
+        tokenAddress,
+        this.getDSTokenABI(),
+        this.wallet,
+      );
+
+      const tx = await dsTokenContract.unpause();
+      await tx.wait();
       
-      const contract = new ethers.Contract(contractAddress, STABLE_COIN_ABI, this.wallet);
-      const tx = await contract.toggleBurning();
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Burning toggle successful: ${receipt.hash}`);
-      return {
-        transactionHash: receipt.hash,
-        success: true,
-        blockNumber: receipt.blockNumber,
-      };
+      this.logger.log(`Token ${tokenAddress} unpaused`);
+      return tx.hash;
     } catch (error) {
-      this.logger.error(`Failed to toggle burning: ${error.message}`);
+      this.logger.error(`Failed to unpause token ${tokenAddress}:`, error);
       throw error;
     }
   }
 
-  async getBalance(contractAddress: string, address: string): Promise<string> {
+  async getTokenBalance(tokenAddress: string, walletAddress: string): Promise<string> {
     try {
-      this.logger.log(`Getting balance for ${address} on contract ${contractAddress}`);
-      
-      const contract = new ethers.Contract(contractAddress, STABLE_COIN_ABI, this.provider);
-      const balance = await contract.balanceOf(address);
-      
-      return balance.toString();
+      const dsTokenContract = new ethers.Contract(
+        tokenAddress,
+        this.getDSTokenABI(),
+        this.provider,
+      );
+
+      const balance = await dsTokenContract.balanceOf(walletAddress);
+      return ethers.formatEther(balance);
     } catch (error) {
-      this.logger.error(`Failed to get balance: ${error.message}`);
+      this.logger.error(`Failed to get balance for ${walletAddress}:`, error);
       throw error;
     }
   }
 
-  async getTotalSupply(contractAddress: string): Promise<string> {
-    try {
-      this.logger.log(`Getting total supply for contract ${contractAddress}`);
-      
-      const contract = new ethers.Contract(contractAddress, STABLE_COIN_ABI, this.provider);
-      const totalSupply = await contract.totalSupply();
-      
-      return totalSupply.toString();
-    } catch (error) {
-      this.logger.error(`Failed to get total supply: ${error.message}`);
-      throw error;
-    }
+  private getRegistryABI(): any[] {
+    return [
+      'function registerInvestor(string investorId, bytes32 collisionHash) external',
+      'function addWallet(address wallet, string investorId) external',
+      'function setCountry(string investorId, string country) external',
+      'function setAttribute(string investorId, uint256 attrId, uint256 value, uint256 expiry, bytes32 proofHash) external',
+    ];
   }
 
-  async setKYCVerified(contractAddress: string, account: string, verified: boolean): Promise<any> {
-    try {
-      this.logger.log(`Setting KYC status for ${account} to ${verified} on contract ${contractAddress}`);
-      
-      const contract = new ethers.Contract(contractAddress, STABLE_COIN_ABI, this.wallet);
-      const tx = await contract.setKYCVerified(account, verified);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`KYC status update successful: ${receipt.hash}`);
-      return {
-        transactionHash: receipt.hash,
-        success: true,
-        blockNumber: receipt.blockNumber,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to set KYC status: ${error.message}`);
-      throw error;
-    }
-  }
-
-  async setFrozen(contractAddress: string, account: string, frozen: boolean): Promise<any> {
-    try {
-      this.logger.log(`Setting frozen status for ${account} to ${frozen} on contract ${contractAddress}`);
-      
-      const contract = new ethers.Contract(contractAddress, STABLE_COIN_ABI, this.wallet);
-      const tx = await contract.setFrozen(account, frozen);
-      const receipt = await tx.wait();
-      
-      this.logger.log(`Frozen status update successful: ${receipt.hash}`);
-      return {
-        transactionHash: receipt.hash,
-        success: true,
-        blockNumber: receipt.blockNumber,
-      };
-    } catch (error) {
-      this.logger.error(`Failed to set frozen status: ${error.message}`);
-      throw error;
-    }
+  private getDSTokenABI(): any[] {
+    return [
+      'function issueTokens(address to, uint256 value) external returns (bool)',
+      'function issueTokenWithLocking(address to, uint256 value, uint256 valueLocked, string reason, uint64 releaseTime) external returns (bool)',
+      'function burn(address who, uint256 value, string reason) external returns (bool)',
+      'function seize(address from, address to, uint256 value, string reason) external returns (bool)',
+      'function pause() external',
+      'function unpause() external',
+      'function balanceOf(address account) external view returns (uint256)',
+    ];
   }
 }
