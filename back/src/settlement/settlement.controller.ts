@@ -48,7 +48,7 @@ export class SettlementController {
 
   @Get('report')
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   generateSettlementReport(
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
@@ -61,14 +61,14 @@ export class SettlementController {
 
   @Get('pending')
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   getPendingSettlements() {
     return this.settlementService.getPendingSettlements();
   }
 
   @Get('funded')
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   getFundedInvestments() {
     return this.settlementService.getFundedInvestments();
   }

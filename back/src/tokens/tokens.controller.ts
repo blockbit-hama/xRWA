@@ -28,21 +28,21 @@ export class TokensController {
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   findAll() {
     return this.tokensService.findAll();
   }
 
   @Get(':id')
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   findOne(@Param('id') id: string) {
     return this.tokensService.findOne(id);
   }
 
   @Get('by-symbol/:symbol')
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   findBySymbol(@Param('symbol') symbol: string) {
     return this.tokensService.findBySymbol(symbol);
   }
@@ -128,7 +128,7 @@ export class TokensController {
 
   @Get(':tokenId/stats')
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   getTokenStats(@Param('tokenId') tokenId: string) {
     return this.tokensService.getTokenStats(tokenId);
   }

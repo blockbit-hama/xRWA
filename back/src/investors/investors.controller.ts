@@ -29,21 +29,21 @@ export class InvestorsController {
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   findAll() {
     return this.investorsService.findAll();
   }
 
   @Get(':id')
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   findOne(@Param('id') id: string) {
     return this.investorsService.findOne(id);
   }
 
   @Get('by-investor-id/:investorId')
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   findByInvestorId(@Param('investorId') investorId: string) {
     return this.investorsService.findByInvestorId(investorId);
   }
@@ -74,7 +74,7 @@ export class InvestorsController {
 
   @Get(':investorId/wallets')
   @UseGuards(RolesGuard)
-  @Roles('issuer', 'admin')
+  @Roles('viewer', 'issuer', 'admin')
   getWallets(@Param('investorId') investorId: string) {
     return this.investorsService.getWallets(investorId);
   }
